@@ -1,6 +1,6 @@
 import java.io.*;
 import java.net.*;
-import java.util.*;
+import java.util.Random;
 
 public class FileServer implements Runnable {
 
@@ -48,14 +48,25 @@ public class FileServer implements Runnable {
 
 		@Override
 		public void run() {
-			try {
-				File[] listOfFiles = folder.listFiles();
-				DataInputStream dIS = new DataInputStream(socket.getInputStream());
-				DataOutputStream dOS = new DataOutputStream(socket.getOutputStream());
+			try (DataOutputStream dOS = new DataOutputStream(socket.getOutputStream());
+					DataInputStream dIS = new DataInputStream(socket.getInputStream())) {
 
+				// 1. Dosya isimlerini gönder
+				File[] listOfFiles = folder.listFiles();
+				dOS.writeUTF("FILENAMES");
+				dOS.writeInt(listOfFiles.length); // Dosya sayısını gönder
 				for (File file : listOfFiles) {
 					if (!file.isDirectory()) {
-						dOS.writeUTF("START");
+						dOS.writeUTF(file.getName()); // Dosya adını gönder
+					}
+				}
+				dOS.writeUTF("NAMESENDED"); // Dosya isimlerinin gönderimi tamamlandı
+				dOS.flush();
+
+				// 2. Dosya gönderimini başlat
+				for (File file : listOfFiles) {
+					if (!file.isDirectory()) {
+						dOS.writeUTF("FILESDATAS");
 						dOS.writeUTF(file.getName());
 						dOS.writeInt((int) file.length());
 
@@ -83,7 +94,7 @@ public class FileServer implements Runnable {
 							}
 						}
 
-						dOS.writeInt(-1);
+						dOS.writeInt(-1); // Dosya aktarımı tamamlandı
 						dOS.writeUTF("END");
 						rAF.close();
 					}
