@@ -21,7 +21,6 @@ public class BroadcastingClient {
         buf = message.getBytes();
         DatagramPacket packet = new DatagramPacket(buf, buf.length, address, PORT);
         socket.send(packet);
-        closeSocket();
     }
 
     public void closeSocket() {

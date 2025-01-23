@@ -47,23 +47,11 @@ public class BroadcastingServer implements Runnable {
                 String peerId = address.getHostAddress();
 
                 String received = new String(packet.getData(), 0, packet.getLength());
-                if (received.equals("I AM HERE")) {
+                if (received.equals("I AM HERE")
+                        && !this.activePeers.contains(peerId)) {
                     this.activePeers.add(peerId);
                     notifyActivePeersChanged();
-                } else if (received.equals("END")) {
-                    this.activePeers.remove(peerId);
-                    notifyActivePeersChanged();
                 }
-
-                String responseMessage = "HELLO " + this.activePeers.size();
-                byte[] responseBytes = responseMessage.getBytes();
-
-                DatagramPacket responsePacket = new DatagramPacket(
-                        responseBytes,
-                        responseBytes.length,
-                        address,
-                        packet.getPort());
-                socket.send(responsePacket);
 
             } catch (IOException e) {
                 e.printStackTrace();

@@ -14,8 +14,9 @@ public class GUI implements ActionListener {
     protected Set<String> activePeers;
     protected Set<String> handledPeers;
 
+    private BroadcastingServer broadcastingServer;
     private BroadcastingClient broadcastClient;
-    private Thread broadcastServer;
+    private FileServer fileServer;
 
     private JMenuBar createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
@@ -25,13 +26,16 @@ public class GUI implements ActionListener {
         JMenuItem disconnect = new JMenuItem("Disconnect");
         JMenuItem exit = new JMenuItem("Exit");
         JMenuItem developer = new JMenuItem("Developer");
+        JMenuItem start = new JMenuItem("Start");
 
         connect.addActionListener(this);
         disconnect.addActionListener(this);
         exit.addActionListener(this);
         developer.addActionListener(this);
+        start.addActionListener(this);
 
         fileMenu.add(connect);
+        fileMenu.add(start);
         fileMenu.add(disconnect);
         fileMenu.add(exit);
         helpMenu.add(developer);
@@ -87,13 +91,14 @@ public class GUI implements ActionListener {
             case "SET_ROOT" -> selectDirectory(true);
             case "SET_DESTINATION" -> selectDirectory(false);
             case "Connect" -> startBroadcasting();
-            case "Disconnect" -> stopBroadcasting();
-            case "Developer" -> showCoder();
+            case "Disconnect" -> stopTransaction();
+            case "Developer" -> showDeveloper();
             case "Exit" -> System.exit(0);
+            case "Start" -> startTransaction();
         }
     }
 
-    private void showCoder() {
+    private void showDeveloper() {
         JOptionPane.showMessageDialog(frame,
                 "İsim: Yavuz Selim Meletlioğlu \n Numara: 20200702056",
                 "About",
@@ -130,44 +135,14 @@ public class GUI implements ActionListener {
         return panel;
     }
 
-    private JPanel createSearchPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BorderLayout());
-
-        JButton searchButton = new JButton("Search");
-        searchButton.setPreferredSize(new Dimension(80, 25));
-        JTextField searchField = new JTextField();
-
-        panel.add(searchButton, BorderLayout.WEST);
-        panel.add(searchField, BorderLayout.CENTER);
-
-        panel.setMaximumSize(new Dimension(500, 30));
-
-        return panel;
-    }
-
     private void startBroadcasting() {
         try {
-            BroadcastingServer broadcastingServer = new BroadcastingServer();
-
-            broadcastingServer.setActivePeersListener(updatedPeers -> {
-
-                this.activePeers = updatedPeers;
-                if (this.activePeers.size() > 0) {
-                    for (String peer : this.activePeers) {
-                        createPeerThread(peer);
-
-                    }
-                }
-            });
+            broadcastingServer = new BroadcastingServer();
 
             new Thread(broadcastingServer).start();
 
-            this.broadcastClient = new BroadcastingClient();
-            this.broadcastClient.sendMessage("I AM HERE");
-            FileServer fileServer = new FileServer(root, 10000);
-
-            new Thread(fileServer).start();
+            broadcastClient = new BroadcastingClient();
+            broadcastClient.sendMessage("I AM HERE");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -186,11 +161,32 @@ public class GUI implements ActionListener {
 
     }
 
-    private void stopBroadcasting() {
-        if (this.broadcastServer != null && this.broadcastServer.isAlive()) {
-            broadcastServer.interrupt();
-        }
+    private void startTransaction() {
+        fileServer = new FileServer(root, 10000);
 
+        new Thread(fileServer).start();
+
+        broadcastingServer.setActivePeersListener(updatedPeers -> {
+
+            this.activePeers = updatedPeers;
+            if (this.activePeers.size() > 0) {
+                for (String peer : this.activePeers) {
+                    createPeerThread(peer);
+                }
+            }
+        });
+    }
+
+    private void stopTransaction() {
+        if (broadcastingServer != null) {
+            broadcastingServer.socket.close();
+        }
+        if (fileServer != null) {
+            fileServer.closeSocket();
+        }
+        if (fileServer != null) {
+            fileServer.closeSocket();
+        }
         if (broadcastClient != null) {
             try {
                 broadcastClient.sendMessage("END");
@@ -215,7 +211,6 @@ public class GUI implements ActionListener {
 
         contentPanel.add(createLogPanel("Downloading files"));
         contentPanel.add(createLogPanel("Found files"));
-        contentPanel.add(createSearchPanel());
 
         frame.add(contentPanel);
         frame.setSize(500, 600);

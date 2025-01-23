@@ -1,7 +1,4 @@
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.net.Socket;
 
 public class FileClient extends Thread {
@@ -15,48 +12,63 @@ public class FileClient extends Thread {
 		this.path = path;
 	}
 
-	public static void getFiles(String IP, String name, int port) {
+	public static void getFiles(String IP, String path, int port) {
 		PORT = port;
-		new FileClient(IP, name).start();
+		new FileClient(IP, path).start();
 	}
 
 	@Override
 	public void run() {
-		try {
-			Socket socket = new Socket(IP, PORT);
+		Socket socket = null;
+		while (socket == null) {
+			try {
+				socket = new Socket(IP, PORT);
+			} catch (IOException e) {
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException ex) {
+					ex.printStackTrace();
+				}
+			}
+		}
 
+		try {
 			DataInputStream dIS = new DataInputStream(socket.getInputStream());
 			DataOutputStream dOS = new DataOutputStream(socket.getOutputStream());
 
-			int fileNameLength = dIS.readInt();
-			byte[] fileNameBytes = new byte[fileNameLength];
-			dIS.readFully(fileNameBytes);
-			String fileName = path + "/" + new String(fileNameBytes);
+			while (true) {
+				String signal = dIS.readUTF();
+				if (signal.equals("START")) {
+					String fileName = path + "/" + dIS.readUTF();
 
-			File file = new File(fileName);
-			if (!file.exists()) {
-				file.createNewFile();
+					File file = new File(fileName);
+					if (!file.exists()) {
+						file.createNewFile();
+					}
+
+					RandomAccessFile rAF = new RandomAccessFile(file, "rw");
+					int length = dIS.readInt();
+					rAF.setLength(length);
+
+					int chunkID;
+					while ((chunkID = dIS.readInt()) != -1) {
+						rAF.seek(chunkID * 256000);
+						int chunkLength = dIS.readInt();
+						byte[] chunkData = new byte[chunkLength];
+						dIS.readFully(chunkData);
+						rAF.write(chunkData);
+						dOS.writeInt(chunkID);
+					}
+
+					rAF.close();
+					System.out.println("Received file: " + fileName);
+				} else if (signal.equals("END")) {
+					System.out.println("File transfer complete.");
+				} else if (signal.equals("FINISH")) {
+					break;
+				}
 			}
-			RandomAccessFile rAF = new RandomAccessFile(file, "rw");
 
-			int length = dIS.readInt();
-			rAF.setLength(length);
-
-			int chunkID;
-			while ((chunkID = dIS.readInt()) != -1) {
-				System.out.println("Reading chunk " + chunkID);
-				rAF.seek(chunkID * 256000);
-
-				int chunkLength = dIS.readInt();
-				byte[] chunkData = new byte[chunkLength];
-				dIS.readFully(chunkData);
-
-				rAF.write(chunkData);
-
-				dOS.writeInt(chunkID);
-			}
-
-			rAF.close();
 			socket.close();
 
 		} catch (Exception e) {
