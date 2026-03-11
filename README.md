@@ -50,7 +50,6 @@ Bu proje, yerel ağ üzerindeki cihazların birbirlerini otomatik olarak bulmas�
 ## 👤 Geliştirici
 
 - **İsim:** Yavuz Selim Meletlioğlu
-- **Öğrenci No:** 20200702056
 
 ---
 *Bu proje, CSE471 Network dersi kapsamında bir dönem projesi olarak geliştirilmiştir.*
